@@ -5,6 +5,8 @@ const S3Notifier        = require('fastboot-s3-notifier');
 const RedisCache        = require('fastboot-redis-cache');
 const FastBootAppServer = require('fastboot-app-server');
 const ExpressHTTPServer = require('fastboot-app-server/src/express-http-server');
+const ExpressbasicAuth  = require('fastboot-app-server/src/basic-auth');
+
 
 
 const S3_BUCKET    = process.env.FASTBOOT_S3_BUCKET;
@@ -38,12 +40,14 @@ if (REDIS_HOST || REDIS_PORT) {
 }
 
 const httpServer = new ExpressHTTPServer(/* {options} */);
+
+const app = httpServer.app;
 if (IMAGE_HOST) {
-  const app = httpServer.app;
   app.get(/^((?!\/assets\/).)*\.(png)|(jpg)|(gif)|(jpeg)|(pdf)$/, function (req, res) {
     res.redirect(IMAGE_HOST + '/'+ req.path);
   });
 }
+app.use(ExpressbasicAuth(USERNAME, PASSWORD));
 
 let server = new FastBootAppServer({
   downloader: downloader,
@@ -51,7 +55,7 @@ let server = new FastBootAppServer({
   notifier: notifier,
   username: USERNAME,
   password: PASSWORD,
-  cache: cache
+  cache: cache,
 });
 
 server.start();
