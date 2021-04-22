@@ -37,6 +37,8 @@ if (REDIS_HOST || REDIS_PORT) {
 let server = new FastBootAppServer({
   downloader: downloader,
   notifier: notifier,
+  username: USERNAME,
+  password: PASSWORD,
   cache: cache
 });
 
