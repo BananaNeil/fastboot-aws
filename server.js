@@ -7,6 +7,9 @@ const FastBootAppServer = require('fastboot-app-server');
 const ExpressHTTPServer = require('fastboot-app-server/src/express-http-server');
 const ExpressbasicAuth  = require('fastboot-app-server/src/basic-auth');
 
+const https = require('https');
+const fs = require('fs');
+
 
 
 const S3_BUCKET    = process.env.FASTBOOT_S3_BUCKET;
@@ -39,19 +42,22 @@ if (REDIS_HOST || REDIS_PORT) {
   console.log('No FASTBOOT_REDIS_HOST or FASTBOOT_REDIS_PORT provided; caching is disabled.');
 }
 
-const httpServer = new ExpressHTTPServer(/* {options} */);
-
-const app = httpServer.app;
-if (IMAGE_HOST) {
-  app.get(/^((?!\/assets\/).)*\.(png)|(jpg)|(gif)|(jpeg)|(pdf)$/, function (req, res) {
-    res.redirect(IMAGE_HOST + '/'+ req.path);
-  });
-}
-app.use(ExpressbasicAuth(USERNAME, PASSWORD));
-
 let server = new FastBootAppServer({
+  beforeMiddleware: function(app) {
+    if (IMAGE_HOST) {
+      app.get(/^((?!\/assets\/).)*\.(png)|(jpg)|(gif)|(jpeg)|(pdf)$/, function (req, res) {
+        res.redirect(IMAGE_HOST + '/'+ req.path);
+      });
+    }
+    app.use(ExpressbasicAuth(USERNAME, PASSWORD));
+
+    var privateKey  = fs.readFileSync('/etc/ssl/private.key', 'utf8');
+    var certificate = fs.readFileSync('/etc/ssl/ssl_certificate.crt', 'utf8');
+
+    var credentials = {key: privateKey, cert: certificate};
+    https.createServer(credentials, app).listen(443)
+  },
   downloader: downloader,
-  httpServer: httpServer,
   notifier: notifier,
   username: USERNAME,
   password: PASSWORD,
