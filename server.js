@@ -42,20 +42,38 @@ if (REDIS_HOST || REDIS_PORT) {
   console.log('No FASTBOOT_REDIS_HOST or FASTBOOT_REDIS_PORT provided; caching is disabled.');
 }
 
+
+
+const enforceHTTPS = function(req, res, next) {
+  // Header indicates edge server received request over HTTPS
+  if (req.headers["x-forwarded-proto"] === "https") {
+    return next();
+  } else {
+    // Did not come over HTTPS. Fix that!
+    return res.redirect(301, `https://${req.hostname}${req.url}`);
+  }
+};
+
 let server = new FastBootAppServer({
   beforeMiddleware: function(app) {
+
+    app.enable('trust proxy');
+
     if (IMAGE_HOST) {
       app.get(/^((?!\/assets\/).)*\.(png)|(jpg)|(gif)|(jpeg)|(pdf)$/, function (req, res) {
         res.redirect(IMAGE_HOST + '/'+ req.path);
       });
     }
     app.use(ExpressbasicAuth(USERNAME, PASSWORD));
+    app.use((req, res, next) => {
+      req.secure ? next() : res.redirect('https://' + req.headers.host + req.url)
+    });
 
     var privateKey  = fs.readFileSync('/etc/ssl/private.key', 'utf8');
     var certificate = fs.readFileSync('/etc/ssl/ssl_certificate.crt', 'utf8');
 
     var credentials = {key: privateKey, cert: certificate};
-    https.createServer(credentials, app).listen(443)
+    https.createServer(credentials, app).listen(443);
   },
   downloader: downloader,
   notifier: notifier,
